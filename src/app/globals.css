@@ -1,0 +1,45 @@
+:root {
+  --background: #ffffff;
+  --foreground: #000000;
+  --font-sans: Arial, Helvetica, sans-serif;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #121212;
+    --foreground: #f5f5f5;
+  }
+}
+
+/* Global styles */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+.btn-primary {
+  background-color: #38ad38 !important;
+  border-color: #38ad38 !important;
+}
+
+.nav-margin{
+  margin-top: 4vh;
+}
+.navbar{
+  z-index: 99;
+  
+}
+.sidebar{
+  z-index: 999;
+}
+.light-text{
+  color: #f8f9fa;
+}
+
+.mt-user {
+  margin-top: 20vh;
+  margin-left: 8vh;
+}
