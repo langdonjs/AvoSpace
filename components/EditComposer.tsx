@@ -83,9 +83,26 @@ const EditComposer = forwardRef<EditComposerRef, EditComposerProps>(function Edi
     onChange: (val: string) => void;
   }) {
     return (
-      <div className="mb-2">
-        <label>{label}</label>
-        <select className="form-select" value={value} onChange={(e) => onChange(e.target.value)}>
+      <div className="mb-3">
+        <label style={{ 
+          display: 'block', 
+          marginBottom: '0.5rem', 
+          fontWeight: 500,
+          color: 'var(--gray-700)',
+          fontSize: '0.875rem'
+        }}>
+          {label}
+        </label>
+        <select 
+          className="form-select" 
+          value={value} 
+          onChange={(e) => onChange(e.target.value)}
+          style={{
+            borderRadius: '12px',
+            border: '1px solid var(--gray-300)',
+            padding: '0.75rem 1rem'
+          }}
+        >
           {options.map((opt, i) => (
             <option key={i} value={opt}>{opt || '(none)'}</option>
           ))}
@@ -144,37 +161,78 @@ const EditComposer = forwardRef<EditComposerRef, EditComposerProps>(function Edi
   return (
     <div
       className="position-fixed top-0 start-0 w-100 h-100"
-      style={{ background: 'rgba(0,0,0,0.4)', zIndex: 1050 }}
+      style={{ 
+        background: 'rgba(0,0,0,0.5)', 
+        zIndex: 1050,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1rem'
+      }}
       onClick={() => setIsOpen(false)}
     >
       <div
-        className="bg-white rounded shadow p-4"
+        className="bg-white rounded"
         style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: 'min(90vw, 600px)',
+          width: '100%',
+          maxWidth: '600px',
+          padding: '2rem',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+          borderRadius: '16px',
           maxHeight: '90vh',
           overflowY: 'auto'
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h5 className="mb-3">Edit Profile</h5>
-        {error && <div className="alert alert-danger py-2">{error}</div>}
+        <h5 className="mb-4" style={{ 
+          fontSize: '1.5rem', 
+          fontWeight: 600, 
+          color: 'var(--gray-900)',
+          marginBottom: '1.5rem'
+        }}>
+          Edit Profile
+        </h5>
+        {error && (
+          <div className="alert alert-danger py-2 mb-3" style={{ borderRadius: '12px', fontSize: '0.875rem' }}>
+            {error}
+          </div>
+        )}
         
         <div className="mb-3">
-          <label>Username</label>
+          <label style={{ 
+            display: 'block', 
+            marginBottom: '0.5rem', 
+            fontWeight: 500,
+            color: 'var(--gray-700)',
+            fontSize: '0.875rem'
+          }}>
+            Username
+          </label>
           <input 
             className="form-control"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+            style={{
+              borderRadius: '12px',
+              border: '1px solid var(--gray-300)',
+              padding: '0.75rem 1rem'
+            }}
           />
         </div>
         
-        {/* Live Kaomoji Preview */}
-        <div className="mb-4 p-3 border rounded" style={{ background: bgColor }}>
-          <label className="form-label fw-bold">Live Preview:</label>
+        <div className="mb-4 p-3 border rounded" style={{ 
+          background: bgColor,
+          borderRadius: '12px',
+          border: '1px solid var(--gray-200) !important'
+        }}>
+          <label className="form-label fw-bold" style={{ 
+            display: 'block',
+            marginBottom: '0.75rem',
+            color: 'var(--gray-900)',
+            fontSize: '0.875rem'
+          }}>
+            Live Preview:
+          </label>
           <div className="text-center" style={{ fontSize: '2.5rem', minHeight: '3rem' }}>
             {liveKaomoji}
           </div>
@@ -190,12 +248,26 @@ const EditComposer = forwardRef<EditComposerRef, EditComposerProps>(function Edi
         <Dropdown label="Right Side" options={rightSides} value={rightSide} onChange={setRightSide} />
         
         <div className="mb-3">
-          <label>Background Color</label>
+          <label style={{ 
+            display: 'block', 
+            marginBottom: '0.5rem', 
+            fontWeight: 500,
+            color: 'var(--gray-700)',
+            fontSize: '0.875rem'
+          }}>
+            Background Color
+          </label>
           <input
             type="color"
             value={bgColor}
             onChange={(e) => setBgColor(e.target.value)}
             className="form-control form-control-color"
+            style={{
+              borderRadius: '12px',
+              border: '1px solid var(--gray-300)',
+              width: '100%',
+              height: '48px'
+            }}
           />
         </div>
         
@@ -204,6 +276,7 @@ const EditComposer = forwardRef<EditComposerRef, EditComposerProps>(function Edi
             className="btn btn-outline-secondary"
             onClick={() => setIsOpen(false)}
             disabled={isSubmitting}
+            style={{ borderRadius: '12px' }}
           >
             Cancel
           </button>
@@ -211,6 +284,7 @@ const EditComposer = forwardRef<EditComposerRef, EditComposerProps>(function Edi
             className="btn btn-primary"
             onClick={handleSubmit}
             disabled={isSubmitting}
+            style={{ borderRadius: '12px' }}
           >
             {isSubmitting ? 'Saving...' : 'Save'}
           </button>
