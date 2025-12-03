@@ -457,3 +457,18 @@ html {
 .card {
   animation: slideUp 300ms ease-out;
 }
+
+/* Jiggle animation for Jiggle Game */
+.jiggle-image {
+  display: inline-block;
+  animation: jiggle 0.5s ease-in-out;
+}
+
+@keyframes jiggle {
+  0% { transform: translateX(0) rotate(0deg); }
+  20% { transform: translateX(-4px) rotate(-3deg); }
+  40% { transform: translateX(4px) rotate(3deg); }
+  60% { transform: translateX(-3px) rotate(-2deg); }
+  80% { transform: translateX(3px) rotate(2deg); }
+  100% { transform: translateX(0) rotate(0deg); }
+}

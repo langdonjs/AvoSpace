@@ -3,10 +3,16 @@ import Post from '../../../components/Post';
 import PostComposer, { PostComposerRef } from '../../../components/PostComposer';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { collection, getDocs, DocumentData, where, query, limit, startAfter, DocumentSnapshot } from 'firebase/firestore';
+import { collection, getDocs, DocumentData, where, query, limit, startAfter, endBefore, limitToLast, orderBy, DocumentSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged } from 'firebase/auth';
+import choyImg from '../../images/choy.png';
+import drewskiImg from '../../images/drewski.png';
+import goatImg from '../../images/goat.png';
+import rohanImg from '../../images/rohan.png';
+import tonyImg from '../../images/tony.png';
+import vivekImg from '../../images/vivek.png';
 
 interface Friend {
   uid: string;
@@ -18,7 +24,7 @@ export default function Home() {
   const router = useRouter();
   const [posts, setPosts] = useState<DocumentData[]>([]);
   const [friendsPosts, setFriendsPosts] = useState<DocumentData[]>([]);
-  const [activeTab, setActiveTab] = useState<'home' | 'friends' | 'favorites'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'friends' | 'favorites' | 'jiggle'>('home');
   const [loading, setLoading] = useState<boolean>(true);
   const [friendsLoading, setFriendsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,16 +32,53 @@ export default function Home() {
   const [ user, setUser ] = useState<any>(null);
   const [profileName, setProfileName] = useState<string>('this_person');
   const [kao, setKao] = useState<string>('❀༉ʕ˵˃ᗜ˂ ʔ');
-  const [lastVisible, setLastVisible] = useState<DocumentSnapshot | null>(null);
-  const [hasMore, setHasMore] = useState(true);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSnapshots, setPageSnapshots] = useState<{ [key: number]: { first: DocumentSnapshot | null, last: DocumentSnapshot | null } }>({});
+  const [hasNextPage, setHasNextPage] = useState(true);
+  const POSTS_PER_PAGE = 10;
+  
   const [friends, setFriends] = useState<Friend[]>([]);
 
+  // Jiggle game state
+  const jiggleMembers = [
+    { name: 'Andrew', image: choyImg.src },
+    { name: 'Drewski', image: drewskiImg.src },
+    { name: 'Maithreya', image: goatImg.src },
+    { name: 'Rohan', image: rohanImg.src },
+    { name: 'Tony', image: tonyImg.src },
+    { name: 'Vivek', image: vivekImg.src },
+  ];
+  const [jiggleIndex, setJiggleIndex] = useState(0);
+  const [isJiggling, setIsJiggling] = useState(false);
+  const [jigglePower, setJigglePower] = useState(1);
+  const [lastJiggleClick, setLastJiggleClick] = useState<number | null>(null);
+
+  const handleRandomJiggle = () => {
+    const now = Date.now();
+
+    // If the user clicks again quickly, increase power (speed + size)
+    let nextPower = 1;
+    if (lastJiggleClick !== null && now - lastJiggleClick < 600) {
+      nextPower = Math.min(jigglePower + 1, 5); // cap at 5
+    } else {
+      nextPower = 1;
+    }
+
+    const next = Math.floor(Math.random() * jiggleMembers.length);
+    setJiggleIndex(next);
+    setJigglePower(nextPower);
+    setLastJiggleClick(now);
+    setIsJiggling(true);
+  };
+
   useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-            setUser(firebaseUser);
-        });
-        return () => unsubscribe();
-    }, []);
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Fetch friends list
   useEffect(() => {
@@ -131,24 +174,63 @@ export default function Home() {
     }
   };
 
-  const fetchPosts = async (loadMore = false) => {
+  const fetchPosts = async (page: number = 1, direction: 'next' | 'prev' | 'first' = 'first') => {
     try {
+      setLoading(true);
       let q;
-      if (loadMore && lastVisible) {
-        q = query(collection(db, 'posts'), startAfter(lastVisible), limit(10));
+      
+      if (direction === 'first' || page === 1) {
+        // First page - no cursor needed
+        q = query(
+          collection(db, 'posts'),
+          orderBy('date', 'desc'),
+          limit(POSTS_PER_PAGE)
+        );
+      } else if (direction === 'next' && pageSnapshots[page - 1]?.last) {
+        // Next page - start after last doc of previous page
+        q = query(
+          collection(db, 'posts'),
+          orderBy('date', 'desc'),
+          startAfter(pageSnapshots[page - 1].last),
+          limit(POSTS_PER_PAGE)
+        );
+      } else if (direction === 'prev' && pageSnapshots[page + 1]?.first) {
+        // Previous page - end before first doc of next page
+        q = query(
+          collection(db, 'posts'),
+          orderBy('date', 'desc'),
+          endBefore(pageSnapshots[page + 1].first),
+          limitToLast(POSTS_PER_PAGE)
+        );
       } else {
-        q = query(collection(db, 'posts'), limit(10));
+        // Fallback to first page
+        q = query(
+          collection(db, 'posts'),
+          orderBy('date', 'desc'),
+          limit(POSTS_PER_PAGE)
+        );
       }
       
       const snapshot = await getDocs(q);
       
       if (snapshot.docs.length === 0) {
-        setHasMore(false);
+        setPosts([]);
+        setHasNextPage(false);
+        setLoading(false);
         return;
       }
       
+      // Store snapshots for this page
+      const newPageSnapshots = { ...pageSnapshots };
+      newPageSnapshots[page] = {
+        first: snapshot.docs[0],
+        last: snapshot.docs[snapshot.docs.length - 1]
+      };
+      setPageSnapshots(newPageSnapshots);
+      
       let newPosts = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
       
+      // Sort by date (should already be sorted, but just in case)
       newPosts.sort((a, b) => {
         const dateA = new Date(a.date);
         const dateB = new Date(b.date);
@@ -160,30 +242,50 @@ export default function Home() {
         return dateB.getTime() - dateA.getTime();
       });
       
-      if (loadMore) {
-        setPosts((prev) => [...prev, ...newPosts]);
-      } else {
-        setPosts(newPosts);
-      }
+      setPosts(newPosts);
       
-      setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
-      setHasMore(snapshot.docs.length === 10);
+      // Check if there are more posts by trying to fetch one more
+      const checkNextQuery = query(
+        collection(db, 'posts'),
+        orderBy('date', 'desc'),
+        startAfter(snapshot.docs[snapshot.docs.length - 1]),
+        limit(1)
+      );
+      const checkSnapshot = await getDocs(checkNextQuery);
+      setHasNextPage(checkSnapshot.docs.length > 0);
+      
+      setLoading(false);
     } catch (err: any) {
       setError(err?.message || 'Failed to load posts');
+      setLoading(false);
+    }
+  };
+
+  const goToNextPage = () => {
+    const nextPage = currentPage + 1;
+    setCurrentPage(nextPage);
+    fetchPosts(nextPage, 'next');
+  };
+
+  const goToPrevPage = () => {
+    if (currentPage > 1) {
+      const prevPage = currentPage - 1;
+      setCurrentPage(prevPage);
+      fetchPosts(prevPage, 'prev');
     }
   };
 
   useEffect(() => {
-    fetchPosts();
+    fetchPosts(1, 'first');
     const getUserInfo = async () => {
       try {
         if (user != null) {
           const docRef = doc(db, "users", user.uid);
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
-              const data = docSnap.data()
-              setProfileName(data.username)
-              setKao(data.kao)
+            const data = docSnap.data()
+            setProfileName(data.username)
+            setKao(data.kao)
           }
         } 
       } catch (err: any) {
@@ -191,7 +293,6 @@ export default function Home() {
       }
     }
     getUserInfo();
-    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -278,6 +379,23 @@ export default function Home() {
               }}
             >
               Post
+            </li>
+            <li 
+              className={activeTab === 'jiggle' ? 'active' : ''}
+              onClick={() => setActiveTab('jiggle')}
+              style={{ 
+                padding: '1rem 1.25rem',
+                marginBottom: '0.5rem',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+                fontSize: '0.9375rem',
+                fontWeight: 500,
+                color: activeTab === 'jiggle' ? 'var(--white)' : 'var(--gray-700)',
+                backgroundColor: activeTab === 'jiggle' ? 'var(--avocado-green)' : 'transparent'
+              }}
+            >
+              Jiggle Game
             </li>
             <li 
               className={activeTab === 'favorites' ? 'active' : ''}
@@ -414,18 +532,86 @@ export default function Home() {
                     <Post text={doc.text} uid={doc.uid || ''} date={doc.date} postId={doc.id || idx.toString()} />
                   </div>
                 ))}
-                {!loading && !error && hasMore && posts.length > 0 && (
-                  <button 
-                    onClick={() => fetchPosts(true)}
-                    className="btn btn-outline-secondary"
-                    style={{
+                
+                {/* Pagination Controls */}
+                {!loading && !error && posts.length > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '1rem',
+                    marginTop: '2rem',
+                    width: '100%'
+                  }}>
+                    {currentPage > 1 && (
+                      <button 
+                        onClick={goToPrevPage}
+                        style={{
+                          padding: '0.75rem 1.5rem',
+                          borderRadius: '12px',
+                          border: '1px solid var(--gray-300)',
+                          backgroundColor: 'var(--white)',
+                          color: 'var(--gray-700)',
+                          fontWeight: 500,
+                          fontSize: '0.9375rem',
+                          cursor: 'pointer',
+                          transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = 'var(--avocado-green-light)';
+                          e.currentTarget.style.borderColor = 'var(--avocado-green)';
+                          e.currentTarget.style.color = 'var(--avocado-green)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'var(--white)';
+                          e.currentTarget.style.borderColor = 'var(--gray-300)';
+                          e.currentTarget.style.color = 'var(--gray-700)';
+                        }}
+                      >
+                        ← Previous
+                      </button>
+                    )}
+                    
+                    <div style={{
+                      padding: '0.75rem 1.25rem',
                       borderRadius: '12px',
-                      padding: '0.75rem 2rem',
-                      marginTop: '1rem'
-                    }}
-                  >
-                    Load More Posts
-                  </button>
+                      backgroundColor: 'var(--avocado-green-light)',
+                      color: 'var(--gray-900)',
+                      fontWeight: 700,
+                      fontSize: '0.9375rem'
+                    }}>
+                      Page {currentPage}
+                    </div>
+                    
+                    {hasNextPage && (
+                      <button 
+                        onClick={goToNextPage}
+                        style={{
+                          padding: '0.75rem 1.5rem',
+                          borderRadius: '12px',
+                          border: '1px solid var(--gray-300)',
+                          backgroundColor: 'var(--white)',
+                          color: 'var(--gray-700)',
+                          fontWeight: 500,
+                          fontSize: '0.9375rem',
+                          cursor: 'pointer',
+                          transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = 'var(--avocado-green-light)';
+                          e.currentTarget.style.borderColor = 'var(--avocado-green)';
+                          e.currentTarget.style.color = 'var(--avocado-green)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'var(--white)';
+                          e.currentTarget.style.borderColor = 'var(--gray-300)';
+                          e.currentTarget.style.color = 'var(--gray-700)';
+                        }}
+                      >
+                        Next →
+                      </button>
+                    )}
+                  </div>
                 )}
               </>
             )}
@@ -511,6 +697,74 @@ export default function Home() {
                 </div>
               </>
             )}
+
+            {activeTab === 'jiggle' && (
+              <div style={{ width: '100%' }}>
+                <h1 style={{ 
+                  fontSize: '1.875rem', 
+                  fontWeight: 600, 
+                  marginBottom: '1.5rem',
+                  color: 'var(--gray-900)',
+                  textAlign: 'center'
+                }}>
+                  Jiggle a Codeology Member
+                </h1>
+
+                <div style={{ 
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '1.5rem'
+                }}>
+                  <div style={{ 
+                    width: '220px',
+                    height: '220px',
+                    borderRadius: '24px',
+                    overflow: 'hidden',
+                    boxShadow: 'var(--shadow-md)',
+                    backgroundColor: 'var(--gray-100)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <img
+                      src={jiggleMembers[jiggleIndex].image}
+                      alt={jiggleMembers[jiggleIndex].name}
+                      className={isJiggling ? 'jiggle-image' : ''}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        transform: isJiggling ? `scale(${1 + jigglePower * 0.08})` : 'scale(1)',
+                        animationDuration: `${0.5 / jigglePower}s`
+                      }}
+                      onAnimationEnd={() => setIsJiggling(false)}
+                    />
+                  </div>
+
+                  <div style={{ 
+                    fontSize: '1.125rem',
+                    fontWeight: 600,
+                    color: 'var(--gray-900)'
+                  }}>
+                    {jiggleMembers[jiggleIndex].name}
+                  </div>
+
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleRandomJiggle}
+                    style={{
+                      borderRadius: '999px',
+                      padding: '0.75rem 1.75rem',
+                      fontSize: '0.9375rem',
+                      fontWeight: 600
+                    }}
+                  >
+                    Jiggle!
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -587,7 +841,11 @@ export default function Home() {
       <PostComposer
         ref={composerRef}
         onPostCreated={(newPost) => {
-          setPosts((prev) => [newPost, ...prev]);
+          // When a new post is created, reset to page 1 and refresh
+          setCurrentPage(1);
+          setPageSnapshots({});
+          fetchPosts(1, 'first');
+          
           if (activeTab === 'friends' && user?.uid && newPost.uid !== user.uid) {
             const checkIfFriend = async () => {
               try {
