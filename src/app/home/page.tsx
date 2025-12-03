@@ -13,6 +13,10 @@ import goatImg from '../../images/goat.png';
 import rohanImg from '../../images/rohan.png';
 import tonyImg from '../../images/tony.png';
 import vivekImg from '../../images/vivek.png';
+import lochanImg from '../../images/lochan.png';
+import phillipImg from '../../images/phillip.png';
+import sahirImg from '../../images/sahir.png';
+import timImg from '../../images/tim.png';
 
 interface Friend {
   uid: string;
@@ -49,11 +53,16 @@ export default function Home() {
     { name: 'Rohan', image: rohanImg.src },
     { name: 'Tony', image: tonyImg.src },
     { name: 'Vivek', image: vivekImg.src },
+    { name: 'Lochan', image: lochanImg.src },
+    { name: 'Phillip', image: phillipImg.src },
+    { name: 'Sahir', image: sahirImg.src },
+    { name: 'Tim', image: timImg.src },
   ];
   const [jiggleIndex, setJiggleIndex] = useState(0);
   const [isJiggling, setIsJiggling] = useState(false);
   const [jigglePower, setJigglePower] = useState(1);
   const [lastJiggleClick, setLastJiggleClick] = useState<number | null>(null);
+  const [jigglePops, setJigglePops] = useState<{ id: number; left: number; top: number }[]>([]);
 
   const handleRandomJiggle = () => {
     const now = Date.now();
@@ -71,6 +80,17 @@ export default function Home() {
     setJigglePower(nextPower);
     setLastJiggleClick(now);
     setIsJiggling(true);
+
+    // Add a floating "Jiggle" text at a random position within the jiggle area
+    const id = now + Math.random();
+    const left = 15 + Math.random() * 70; // % from left
+    const top = 10 + Math.random() * 50;  // % from top
+    setJigglePops((prev) => [...prev, { id, left, top }]);
+
+    // Remove after animation completes
+    setTimeout(() => {
+      setJigglePops((prev) => prev.filter((p) => p.id !== id));
+    }, 900);
   };
 
   useEffect(() => {
@@ -699,7 +719,7 @@ export default function Home() {
             )}
 
             {activeTab === 'jiggle' && (
-              <div style={{ width: '100%' }}>
+              <div style={{ width: '100%', position: 'relative', overflow: 'hidden' }}>
                 <h1 style={{ 
                   fontSize: '1.875rem', 
                   fontWeight: 600, 
@@ -735,7 +755,6 @@ export default function Home() {
                         width: '100%',
                         height: '100%',
                         objectFit: 'cover',
-                        transform: isJiggling ? `scale(${1 + jigglePower * 0.08})` : 'scale(1)',
                         animationDuration: `${0.5 / jigglePower}s`
                       }}
                       onAnimationEnd={() => setIsJiggling(false)}
@@ -762,6 +781,20 @@ export default function Home() {
                   >
                     Jiggle!
                   </button>
+
+                  {/* Floating "Jiggle" texts */}
+                  {jigglePops.map((pop) => (
+                    <div
+                      key={pop.id}
+                      className="jiggle-pop"
+                      style={{
+                        left: `${pop.left}%`,
+                        top: `${pop.top}%`
+                      }}
+                    >
+                      Jiggle
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
